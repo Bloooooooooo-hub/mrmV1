@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ma RoadMap Island</title>
+
+  <!-- Tailwind CSS & AlpineJS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/alpinejs" defer></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Lottie (Lordicon) -->
+  <script src="https://unpkg.com/lottie-web@5.7.6/build/player/lottie.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js"></script>
+
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Edu+NSW+ACT+Hand&display=swap" rel="stylesheet">
+
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Blink effect (optionnel) */
+    .blinker {
+      animation: blink 1.5s infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+  </style>
+</head><!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ma RoadMap Island</title>
+
+  <!-- Tailwind CSS & AlpineJS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/alpinejs" defer></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Lottie -->
+  <script src="https://unpkg.com/lottie-web@5.7.6/build/player/lottie.min.js"></script>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Edu+NSW+ACT+Hand+Pre:wght@400&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    .blinker {
+      animation: blink 1.5s infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+      
+    }
+  </style>
+</head>
+
+<!-- Popup préproduction -->
+<div
+  x-data="{ showPopup: true }"
+  x-show="showPopup"
+  class="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50"
+>
+  <div class="bg-white rounded-xl p-6 w-96 text-center shadow-xl">
+    <h2 class="text-xl font-bold mb-4 text-red-600 text-align-center" >⚠️ Environnement de préproduction</h2>
+    <p class="mb-6 text-black-700">
+      Vous êtes actuellement dans un environnement de test. Les données peuvent être réinitialisées à tout moment. Contactez Loic-Emmanuel au besoin 🔔
+      <br> <br> 
+    </p>
+    <button
+      @click="showPopup = false"
+      class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition"
+    >
+      OK, j'ai compris
+    </button>
+  </div>
+</div>
+
+<!-- Popup de choix du rôle -->
+<div
+  x-data="{ showRolePopup: true }"
+  x-show="showRolePopup"
+  class="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-50"
+>
+  <div class="bg-white rounded-xl p-6 w-96 text-center shadow-lg">
+    
+    <!-- Animation en haut -->
+    <div id="lottie-role" class="w-24 h-24 mx-auto mb-4"></div>
+    
+    <h2 class="text-xl font-bold mb-2 text-gray-800">
+      Qui êtes-vous ?
+    </h2>
+    <p class="text-gray-600 mb-6">Merci de préciser votre profil pour continuer</p>
+    
+    <div class="flex justify-around">
+      <button
+        @click="showRolePopup = false"
+        class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
+      >
+        Utilisateur
+      </button>
+      <button
+        @click="window.location.href='professionnel.html'"
+        class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
+      >
+        Professionnel
+      </button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+
+
+<body class="bg-white h-screen flex flex-col items-center justify-between py-10 ">
+  
+  <style>
+    .edu-nsw {
+      font-family: 'Edu NSW ACT Hand Pre', cursive;
+      font-weight: 20;
+      font-size: 20px; /* change à 40px si tu veux plus grand */
+    }
+    </style>
+    
+  
+  
+  
+
+  <!-- Dynamic Island -->
+<div x-data="{ open: false }"
+@mouseenter="open = true"
+@mouseleave="open = false"
+class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-black text-white rounded-full shadow-xl overflow-hidden px-6 py-2 z-50 flex items-center justify-between transition-all duration-700"
+:class="open ? 'w-[520px]' : 'w-[210px]'">
+
+<!-- Animation Lottie + Titre -->
+<!-- Animation Lottie + Titre -->
+<div class="flex items-center gap-0.1 flex-shrink-0">
+  <div id="lottie-icon" class="w-7 h-7 "></div>
+  
+  <span class="edu-nsw">Ma RoadMap</span>
+
+
+</div>
+
+
+
+<!-- Menu -->
+<nav class="flex gap-6 text-sm ml-8 transition-opacity duration-500"
+  x-show="open"
+  x-transition:enter="transition ease-out duration-500"
+  x-transition:enter-start="opacity-0"
+  x-transition:enter-end="opacity-100"
+  x-transition:leave="transition ease-in duration-300"
+  x-transition:leave-start="opacity-100"
+  x-transition:leave-end="opacity-0">
+<a href="#" class="hover:underline">Historique</a>
+<a href="#" class="hover:underline">Premium</a>
+<a href="#" class="hover:underline">Compte</a>
+</nav>
+</div>
+
+
+  <!-- Animation centrée -->
+  <div id="lottie-animation" class="w-32 h-32 mx-auto my-80"></div>
+
+
+  <!-- BOUTON EN BAS -->
+<div>
+  <button
+  id="start-button"
+  onclick="playLoading()"
+  class="bg-black text-white  px-5 py-4 mb-0 rounded-full transition duration-300 hover:bg-green-600"
+>
+  Commencer mon projet
+</button>
+
+<!-- Zone pour l’animation -->
+<div id="chargement-animation" class="w-32 h-32 mx-auto hidden mt-6"></div>
+
+<script>
+  function playLoading() {
+    // Cache le bouton
+    document.getElementById('start-button').classList.add('hidden');
+
+    // Affiche l’animation
+    const anim = document.getElementById('chargement-animation');
+    anim.classList.remove('hidden');
+
+    // Joue l'animation
+    lottie.loadAnimation({
+      container: anim,
+      renderer: 'svg',
+      loop: true,
+      autoplay: true,
+      path: '/images/chargement.json' // ← ton fichier ici
+    });
+
+    // Redirection après 3 secondes
+    setTimeout(() => {
+      window.location.href = 'page2.html';
+    }, 3000);
+  }
+</script>
+
+</div>
+
+<!-- OVERLAY DE CHARGEMENT (masqué au départ) -->
+<div
+  id="loading-overlay"
+  class="fixed inset-0 bg-white flex items-center justify-center z-50 hidden"
+>
+  <div id="loading-animation" class="w-40 h-40"></div>
+</div>
+
+<!-- SCRIPT -->
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const button = document.getElementById("start-button");
+    const overlay = document.getElementById("loading-overlay");
+    const animationContainer = document.getElementById("loading-animation");
+
+    button.addEventListener("click", () => {
+      overlay.classList.remove("hidden");
+
+      lottie.loadAnimation({
+        container: animationContainer,
+        renderer: "svg",
+        loop: true,
+        autoplay: true,
+        path: "/images/chargement.json",
+      });
+
+      setTimeout(() => {
+        window.location.href = "page2.html";
+      }, 2000);
+    });
+  });
+</script>
+
+
+  <!-- Initialisation des icônes + animation -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      lottie.loadAnimation({
+        container: document.getElementById('lottie-icon'),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: '/images/nav.json'
+      });
+
+      lottie.loadAnimation({
+        container: document.getElementById('lottie-role'),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: '/images/anim.json' // ← ton animation ici
+      });
+      
+      
+      lottie.loadAnimation({
+        container: document.getElementById('lottie-animation'),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: '/images/rokette.json' // 💡 fonctionne via reverse proxy
+      });
+    });
+  </script>
+  <script>
+    // Si la page est rechargée (via le bouton ou raccourci clavier)
+    window.addEventListener('pageshow', function (event) {
+      if (event.persisted || (performance && performance.navigation.type === 1)) {
+        // Redirection vers la première page
+        window.location.href = 'index.html';
+      }
+    });
+  </script>
+  
+
+</body>
+</html>
