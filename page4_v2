@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Étape 4 - Résultats personnalisés</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/alpinejs" defer></script>
+  <!-- Lottie -->
+<script defer src="https://stats.le2mholding.com/script.js" data-website-id="1ab8086f-3449-443a-ab58-301fd21a370f"></script>
+
+  <script src="https://unpkg.com/lottie-web@5.7.6/build/player/lottie.min.js"></script>
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Edu+NSW+ACT+Hand+Pre:wght@400..700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .edu-nsw {
+      font-family: "Edu NSW ACT Hand Pre", cursive;
+      font-size: 20px;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+    }
+    .pro-card {
+      transition: all 0.3s ease;
+      transform-origin: center;
+    }
+    .pro-card:hover {
+      transform: translateY(-5px);
+    }
+    .tab-button {
+      transition: all 0.3s ease;
+    }
+    .tab-button.active {
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    .avatar {
+      background: linear-gradient(135deg, #3b82f6, #46e377);
+    }
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+  </style>
+</head>
+<script>
+  // 1. Introspection du schéma Hasura pour lister les champs de `keywords`
+  async function introspectKeywordsType() {
+    const introspectionQuery = `
+      query {
+        __type(name: "keywords") {
+          fields { name }
+        }
+      }
+    `;
+    const res = await fetch('https://hasura-preprod.maroadmap.com/v1/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-hasura-admin-secret': 'newpassword'
+      },
+      body: JSON.stringify({ query: introspectionQuery })
+    });
+    const json = await res.json();
+    console.log(
+      '🔍 Champs de keywords →',
+      json.data.__type.fields.map(f => f.name)
+    );
+    // → Remplacez ensuite `RELATION_KEYWORD_PROF` dans la requête ci-dessous
+    // par le nom exact retourné ici (ex. "professionals_by_keywords")
+  }
+
+  // 2. Fonction de récupération des pros pour un besoin
+  async function fetchProfessionnelsPour(besoin) {
+    const query = `
+      query GetProfessionalsByKeyword($label: String!) {
+  keywords(where: { name: { _ilike: $label } }) {
+    id
+    name
+    professionals_keywords {
+      professional {
+        id
+        name
+        job
+        email
+      }
+    }
+  }
+}
+
+    `;
+    const variables = { label: `%${besoin}%` };
+
+    const response = await fetch(
+      'https://hasura-preprod.maroadmap.com/v1/graphql',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-hasura-admin-secret': 'newpassword'
+        },
+        body: JSON.stringify({ query, variables })
+      }
+    );
+    const result = await response.json();
+
+    if (result.errors) {
+      console.error('GraphQL errors :', result.errors);
+      return [{ name: 'Erreur de récupération', job: '', email: '' }];
+    }
+const pros = result.data.keywords
+  .flatMap(k => k.professionals_keywords.map(pk => pk.professional));
+
+
+return pros.length > 0
+  ? pros
+  : [{ name: 'Aucun pro pour ce besoin', job: '', email: '' }];
+
+  }
+
+  // 3. Alpine.js store
+  const appData = {
+    prenom: '',
+    besoins: [],
+    ongletActif: '',
+    professionnelsMap: {},
+    conseilsMap: {},
+    chargement: true,
+    showAddAnim: false,
+    selectedPro: null,
+
+    // Rendre init() asynchrone pour appeler introspectKeywordsType()
+    async init() {
+      // 3.1. Introspection (une seule fois)
+      await introspectKeywordsType();
+
+      // 3.2. Chargement des besoins
+      const raw = localStorage.getItem('besoins');
+      this.besoins = raw ? JSON.parse(raw) : [];
+
+      // 3.3. Pré-initialisation pour Alpine.js
+      this.besoins.forEach(b => {
+        this.professionnelsMap[b] = [];
+        this.conseilsMap[b]       = '';
+      });
+
+      if (this.besoins.length === 0) {
+        alert('Aucun besoin trouvé. Veuillez recommencer.');
+        return void (window.location.href = 'page2.html');
+      }
+
+      this.ongletActif = this.besoins[0];
+      this.chargerProfessionnels();
+    },
+
+    // 4. Chargement des pros + conseils GPT
+    async chargerProfessionnels() {
+      this.chargement = true;
+      const allPros = [];
+
+      for (const besoin of this.besoins) {
+        const pros = await fetchProfessionnelsPour(besoin);
+        this.professionnelsMap[besoin] = pros;
+        allPros.push(...pros);
+      }
+
+      // Filtrer et dédupliquer
+      const vraisPros = allPros.filter(p => p.name !== 'Aucun pro pour ce besoin');
+      const uniquePros = [];
+      const seen = new Set();
+      for (const pro of vraisPros) {
+        const key = `${pro.name}-${pro.job}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          uniquePros.push(pro);
+        }
+      }
+
+      // Générer les conseils
+      for (const pro of uniquePros) {
+        const promptPro = `
+Tu es un expert en accompagnement de projet.
+Voici les besoins de l’utilisateur : ${this.besoins.join(', ')}.
+Pour ${pro.name}, ${pro.job}, donne une phrase concise expliquant comment il peut aider.
+Réponds uniquement par cette phrase, sans ponctuation supplémentaire.
+        `.trim();
+
+        try {
+          const res = await fetch('https://gptproxy.maroadmap.com/gpt-proxy', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: 'gpt-4',
+              messages: [{ role: 'user', content: promptPro }]
+            })
+          });
+          const j = await res.json();
+          this.conseilsMap[pro.name] = j.choices?.[0]?.message?.content
+            .split(/[\r\n]/)[0]
+            .trim();
+        } catch {
+          this.conseilsMap[pro.name] = 'Aucun conseil disponible.';
+        }
+      }
+
+      this.chargement = false;
+    },
+
+    getProfessionnels(besoin) {
+      return this.professionnelsMap[besoin] || [];
+    },
+
+    selectPro(pro) {
+      if (pro.name === 'Aucun pro pour ce besoin') return;
+      this.selectedPro = pro;
+      this.showAddAnim = true;
+      lottie.loadAnimation({
+        container: document.getElementById('ajout-animation'),
+        renderer: 'svg',
+        loop: false,
+        autoplay: true,
+        path: '/images/nim.json'
+      });
+      setTimeout(() => (this.showAddAnim = false), 1500);
+    }
+  };
+</script>
+
+
+<body x-data="appData" x-init="init()" class="min-h-screen bg-gray-50">
+  <!-- Floating Nav -->
+  <div x-data="{ open: false }" 
+       @mouseenter="open = true" 
+       @mouseleave="open = false"
+       class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white flex-shrink-0 rounded-full shadow-xl px-6 py-2 z-50 inline-flex items-center justify-between transition-all duration-300 cursor-pointer max-w-[90vw]"
+       :class="open ? 'px-6 py-2' : 'px-4 py-2'">
+    <div class="flex items-center gap-2 flex-shrink-0">
+      <div id="lottie-icon" class="w-7 h-7"></div>
+      <span class="edu-nsw text-base sm:text-lg md:text-xl" x-text="prenom ? prenom : 'Ma RoadMap'"></span>
+    </div>
+    <nav class="flex gap-6 text-sm ml-8 transition-opacity duration-300"
+         x-show="open"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0">
+      <a href="#" class="hover:underline">Historique</a>
+      <a href="#" class="hover:underline">Premium</a>
+      <a href="#" class="hover:underline">Compte</a>
+    </nav>
+  </div>
+
+  <!-- Main Content -->
+  <div class="container mx-auto px-4 pt-28 pb-12 max-w-6xl">
+    <!-- Header -->
+    <div class="text-center mb-10">
+      <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-3">Vos professionnels recommandés</h1>
+      <p class="text-gray-600 max-w-2xl mx-auto">
+        Nous avons sélectionné pour vous les meilleurs professionnels correspondant à vos besoins.
+      </p>
+    </div>
+
+    <!-- Animation -->
+    <div class="flex justify-center items-center mb-10">
+      <div id="organisation-animation" class="w-48 h-48 md:w-56 md:h-56"></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="mb-8">
+      <div class="flex flex-wrap gap-3 justify-center">
+        <template x-for="besoin in besoins" :key="besoin">
+          <button 
+            class="px-5 py-2 rounded-full border-2 tab-button transition-all duration-300"
+            :class="{
+              'bg-gradient-to-r from-indigo-600 to-purple-600 text-white border-transparent active': ongletActif === besoin,
+              'bg-white text-gray-700 border-gray-200 hover:border-gray-300': ongletActif !== besoin
+            }"
+            @click="ongletActif = besoin"
+            x-text="besoin">
+          </button>
+        </template>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div x-show="chargement" class="flex flex-col items-center justify-center py-12">
+      <div id="cours-loader" class="w-32 h-32"></div>
+      <p class="text-gray-500 mt-4">Chargement des professionnels...</p>
+    </div>
+
+    <!-- Professionals List -->
+    <div x-show="!chargement" class="space-y-6 relative">
+      <!-- Success Animation -->
+      <div x-show="showAddAnim" class="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+        <div class="w-48 h-48">
+          <div id="ajout-animation" class="w-full h-full"></div>
+        </div>
+      </div>
+
+      <!-- No Professionals -->
+      <template x-if="professionnelsMap[ongletActif] && professionnelsMap[ongletActif].length === 0">
+        <div class="text-center py-12">
+          <div class="w-32 h-32 mx-auto mb-4">
+            <div id="empty-animation" class="w-full h-full"></div>
+          </div>
+          <h3 class="text-xl font-semibold text-gray-700">Aucun professionnel trouvé</h3>
+          <p class="text-gray-500 mt-2">Nous n'avons pas trouvé de professionnel correspondant à ce besoin.</p>
+        </div>
+      </template>
+
+      <!-- Professionals Grid -->
+      <template x-if="professionnelsMap[ongletActif] && professionnelsMap[ongletActif].length > 0">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <template x-for="pro in professionnelsMap[ongletActif]" :key="pro.name">
+            <div class="pro-card bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+              <div class="p-6">
+                <!-- Avatar -->
+                <div class="flex items-center mb-4">
+                  <div class="avatar w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-xl mr-4">
+                    <span x-text="pro.name ? pro.name[0] : '?'"></span>
+                  </div>
+                  <div>
+                    <h3 class="text-lg font-semibold text-gray-800" x-text="pro.name"></h3>
+                    <p class="text-sm text-gray-500" x-text="pro.job || 'Métier non renseigné'"></p>
+                  </div>
+                </div>
+
+                <!-- Contact Info -->
+                <div class="mt-4 space-y-2">
+                  <div class="flex items-center text-sm text-gray-600">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                    </svg>
+                    <span x-text="pro.email || 'Email non disponible'"></span>
+                  </div>
+                </div>
+                <!-- Skills -->
+<div class="flex items-center text-sm text-gray-600 mt-2">
+  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3a.75.75 0 01.75.75v.5a.75.75 0 01-1.5 0v-.5A.75.75 0 019.75 3zM4.5 6.75a.75.75 0 010-1.5h15a.75.75 0 010 1.5h-15zM6 9.75a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H6.75A.75.75 0 016 9.75zM6 12.75a.75.75 0 01.75-.75h10.5a.75.75 0 010 1.5H6.75a.75.75 0 01-.75-.75z" />
+  </svg>
+  <span x-text="pro.professionals_keywords ? pro.professionals_keywords.map(pk => pk.keyword.name).join(', ') : 'Compétences non renseignées'"></span>
+</div>
+
+                <!-- Action Button -->
+               <template x-for="pro in professionnelsMap[ongletActif]" :key="pro.name">
+  <div class="pro-card bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+    <div class="p-6">
+      <!-- Avatar, nom, job, mail, compétences… -->
+
+      <!-- Action Button -->
+      <div class="mt-6">
+        <button 
+          @click="selectPro(pro)"
+          class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-300 flex items-center justify-center"
+          :class="{'opacity-50 cursor-not-allowed': pro.name === 'Aucun pro pour ce besoin'}"
+          :disabled="pro.name === 'Aucun pro pour ce besoin'">
+          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+          </svg>
+          Choisir ce professionnel
+        </button>
+      </div>
+
+      <!-- ← AJOUT : Conseil unitaire pour chaque pro -->
+      <template x-if="conseilsMap[pro.name]">
+        <details class="mt-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
+          <summary class="cursor-pointer font-medium text-indigo-600">
+            Voir conseil pour <span x-text="pro.name"></span>
+          </summary>
+          <div
+            class="mt-2 text-sm text-gray-700 whitespace-pre-wrap"
+            x-text="conseilsMap[pro.name]">
+          </div>
+        </details>
+      </template>
+
+    </div>
+  </div>
+</template>
+
+<!-- Conseil unitaire pour ce pro -->
+
+
+
+    <!-- Selected Professional (Floating) -->
+    <div x-show="selectedPro" x-transition
+         class="fixed bottom-6 right-6 bg-white rounded-xl shadow-xl border border-gray-200 p-4 max-w-xs z-40">
+      <div class="flex items-center">
+        <div class="avatar w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg mr-3">
+          <span x-text="selectedPro?.name[0]"></span>
+        </div>
+        <div>
+          <h4 class="font-semibold text-gray-800" x-text="selectedPro?.name"></h4>
+          <p class="text-sm text-gray-500" x-text="selectedPro?.job"></p>
+        </div>
+        <button @click="selectedPro = null" class="ml-auto text-gray-400 hover:text-gray-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+
+
+
+
+
+    <!-- Navigation Buttons -->
+    <div class="flex justify-between mt-12">
+      <button 
+        @click="localStorage.removeItem('etapesGPT'); window.location.href='page2.html'"
+        class="bg-white hover:bg-gray-100 text-gray-700 font-medium px-6 py-3 rounded-lg border border-gray-300 transition-all duration-300 flex items-center">
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+        </svg>
+        Réinitialiser
+      </button>
+      
+      <button 
+        @click="window.location.href='page5.html'"
+        class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium px-6 py-3 rounded-lg transition-all duration-300 flex items-center pulse">
+        Suivant
+        <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Lottie Animations Initialization -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Nav icon animation
+      lottie.loadAnimation({
+        container: document.getElementById('lottie-icon'),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: '/images/nav.json'
+      });
+
+      // Loading animation
+      lottie.loadAnimation({
+        container: document.getElementById('cours-loader'),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: 'https://assets5.lottiefiles.com/packages/lf20_soCRuE.json'
+      });
+
+      // Organization animation
+      lottie.loadAnimation({
+        container: document.getElementById('organisation-animation'),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: '/images/nim.json'
+      });
+
+      // Empty state animation
+      lottie.loadAnimation({
+        container: document.getElementById('empty-animation'),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: 'https://assets5.lottiefiles.com/packages/lf20_kcsr6fcp.json'
+      });
+    });
+  </script>
+
+  <script>
+    window.addEventListener('pageshow', function (event) {
+      const fromRedirect = sessionStorage.getItem('fromRedirect');
+
+      if ((event.persisted || performance.navigation.type === 1) && !fromRedirect) {
+        window.location.href = 'index.html';
+      }
+
+      sessionStorage.removeItem('fromRedirect');
+    });
+  </script>
+
+
+</body>
+</html>
