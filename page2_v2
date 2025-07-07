@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ma RoadMap - Étape 2</title>
+
+  <!-- Tailwind CSS & AlpineJS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/alpinejs" defer></script>
+<script>
+  async function enregistrerProjetEtEtapes(objectif, steps) {
+    const user_id = localStorage.getItem("user_id");
+
+    if (!objectif || !user_id) {
+      alert("❌ Objectif ou user_id manquant.");
+      console.error("objectif:", objectif, "user_id:", user_id);
+      return;
+    }
+
+    let resProj;
+    try {
+      resProj = await fetch('https://hasura-preprod.maroadmap.com/v1/graphql', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-hasura-admin-secret': 'newpassword'   // ← indispensable
+    // (x-hasura-role inutile : l’admin a déjà tous les droits)
+  },
+
+       body: JSON.stringify({
+  query: `
+    mutation($objectif: String!, $user_id: uuid!) {
+      insert_projects_one(object: {objectif: $objectif, user_id: $user_id}) {
+        id
+      }
+    }
+  `,
+  variables: { objectif, user_id }
+})
+
+      });
+    } catch (err) {
+      console.error("❌ Erreur réseau lors de la requête Hasura :", err);
+      alert("❌ Erreur de connexion au serveur.");
+      return;
+    }
+const resJson = await resProj.json();
+console.log("📥 Réponse brute de Hasura :", resJson);
+
+if (resJson.errors) {
+  console.error("❌ Erreur Hasura :", resJson.errors);
+  alert("❌ Erreur Hasura : " + resJson.errors[0]?.message);
+  return;
+}
+
+const projectId = resJson?.data?.insert_projects_one?.id;
+if (!projectId) {
+  console.error("❌ Réponse Hasura sans ID projet :", resJson);
+  alert("❌ Erreur insertion projet.");
+  return;
+}
+
+    const stepsToInsert = steps.map(step => ({
+      project_id: projectId,
+      name: step.name,
+      description: step.description
+    }));
+
+    try {
+      const resSteps = await fetch('https://hasura-preprod.maroadmap.com/v1/graphql', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-hasura-admin-secret': 'newpassword'   // ← indispensable
+    // (x-hasura-role inutile : l’admin a déjà tous les droits)
+  },
+
+        body: JSON.stringify({
+          query: `
+            mutation($steps: [project_steps_insert_input!]!) {
+              insert_project_steps(objects: $steps) {
+                returning { id }
+              }
+            }
+          `,
+          variables: { steps: stepsToInsert }
+        })
+      });
+
+      const inserted = await resSteps.json();
+      console.log("✅ Étapes insérées :", inserted?.data?.insert_project_steps?.returning || []);
+      console.log("✅ Projet et étapes enregistrés avec succès !");
+    } catch (err) {
+      console.error("❌ Erreur lors de l'insertion des étapes :", err);
+      alert("❌ Erreur lors de l'enregistrement des étapes.");
+    }
+  }
+</script>
+
+
+  <!-- Lottie -->
+  <script src="https://unpkg.com/lottie-web@5.7.6/build/player/lottie.min.js"></script>
+<script defer src="https://stats.le2mholding.com/script.js" data-website-id="1ab8086f-3449-443a-ab58-301fd21a370f"></script>
+
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Edu+NSW+ACT+Hand+Pre:wght@400..700&display=swap" rel="stylesheet" />
+
+
+
+
+
+
+
+
+  <style>
+    .edu-nsw {
+      font-family: "Edu NSW ACT Hand Pre", cursive;
+      font-weight: 400;
+      font-size: 20px;
+    }
+  </style>
+</head>
+<script>
+  function appData() {
+    return {
+      prenom: '',
+      isNight: false,
+      creation: '',
+      keywordInput: '',
+      suggestions: [],
+      allKeywords: [],
+      besoins: [],
+      showPopup: true,
+  
+      async init() {
+        this.prenom = localStorage.getItem('prenom') || 'Ma RoadMap';
+        const res = await fetch('https://hasura-preprod.maroadmap.com/v1/graphql', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-hasura-admin-secret': 'newpassword'   // ← indispensable
+    // (x-hasura-role inutile : l’admin a déjà tous les droits)
+  },
+
+          body: JSON.stringify({ query: `query { keywords { name } }` })
+        });
+        const json = await res.json();
+        this.allKeywords = json?.data?.keywords.map(k => k.name) || [];
+      },
+  
+      updateSuggestions() {
+        const input = this.keywordInput.toLowerCase();
+        this.suggestions = this.allKeywords
+          .filter(k => k.toLowerCase().includes(input))
+          .slice(0, 5);
+      },
+  
+      selectSuggestion(s) {
+        this.keywordInput = s;
+        this.suggestions = [];
+      },
+  
+    addKeyword() {
+  if (!this.keywordInput.trim()) return;
+  if (!this.besoins.includes(this.keywordInput)) {
+    this.besoins.push(this.keywordInput);
+    localStorage.setItem('besoins', JSON.stringify(this.besoins)); // ✅ ajout critique
+  }
+  this.keywordInput = '';
+  this.suggestions = [];
+},
+  
+      removeKeyword(index) {
+        this.besoins.splice(index, 1);
+      }
+    }
+  }
+  </script>
+  
+  
+<body id="app" :class="isNight ? 'bg-black text-white' : 'bg-white text-black'" x-data="appData()" x-init="init()" class="h-screen flex flex-col items-center justify-start pt-20 px-4">
+  
+
+<!-- Dynamic Island -->
+<div x-data="{ open: false }"
+@mouseenter="open = true"
+@mouseleave="open = false"
+class="fixed top-5 left-1/2 transform -translate-x-1/2 bg-black text-white rounded-full shadow-xl overflow-hidden px-6 py-2 z-50 inline-flex items-center justify-between transition-all duration-700 cursor-pointer max-w-[210vw]"
+:class="open ? 'px-6 py-2' : 'px-4 py-2'">
+
+  <div class="flex items-center gap-2 flex-shrink-0">
+    <div id="lottie-icon" class="w-6 h-6"></div>
+    <span class="edu-nsw text-base sm:text-lg md:text-xl" x-text="prenom ? prenom : 'Ma RoadMap'"></span>
+
+  </div>
+
+  <nav class="flex gap-6 text-sm ml-8 transition-opacity duration-500"
+       x-show="open"
+       x-transition:enter="transition ease-out duration-500"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-300"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0">
+    <a href="#" class="hover:underline">Historique</a>
+    <a href="#" class="hover:underline">Premium</a>
+    <a href="#" class="hover:underline">Compte</a>
+  </nav>
+</div>
+
+<!-- Popup prénom -->
+<div
+  x-show="showPopup"
+  class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+>
+  <div class="bg-white rounded-xl p-6 w-96 text-center">
+    <div id="lottie-popup" class="w-24 h-24 mx-auto mb-4"></div>
+    <h2 class="text-lg font-semibold mb-2">Quel est votre prénom ?</h2>
+    <input type="text" x-model="prenom" placeholder="Entrez votre prénom"
+           class="border rounded px-4 py-2 w-full mb-4" />
+           <button
+           @click="
+             localStorage.setItem('prenom', prenom);
+             showPopup = false
+           "
+           class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
+         >
+           Valider
+         </button>
+         
+  </div>
+</div>
+
+
+  <!-- Main Content -->
+  <div class="w-full max-w-3xl mt-10 sm:mt-20" x-show="!showPopup">
+    <!-- Project Idea Section -->
+    <div class="bg-white rounded-xl shadow-md p-6 mb-8 transition-all duration-300 hover:shadow-lg">
+      <div id="lottie-idee" class="w-24 h-24 mx-auto mb-6"></div>
+      
+      <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">Décrivez votre projet</h2>
+      
+      <input type="text" 
+             x-model="creation" 
+             placeholder="Ex: Création d'une marque de tee-shirts personnalisés"
+             class="border-2 border-gray-200 px-6 py-4 w-full rounded-xl mb-4 text-center focus:outline-none focus:border-amber-400 transition input-focus text-lg" />
+      
+      <p class="text-lg font-semibold text-gray-700 mb-6 text-center" 
+         x-text="creation ? 'Projet : ' + creation : 'Quelle est votre idée ?'"></p>
+    </div>
+
+    <!-- Keywords Section -->
+<div class="bg-white justify-center rounded-xl shadow-md p-6 mb-8">
+  <h3 class="text-xl font-bold text-gray-800 mb-4">Ajoutez vos besoins</h3>
+
+  <div class="mb-4">
+    <!-- ✅ Champ unique avec datalist -->
+   <!-- Champ avec suggestions -->
+   <div  class="relative">
+    <input type="text"
+         x-model="keywordInput"
+         @input="updateSuggestions"
+         @keydown.escape="suggestions = []"
+         @keydown.enter.prevent="addKeyword"
+         placeholder="Ex: Site internet, Logo, Marketing..."
+         class="w-full px-6 py-3 rounded-xl border-2 border-gray-200 mb-3 focus:outline-none focus:border-amber-400" />
+         <div class="flex flex-wrap gap-3 mt-4" x-show="besoins.length > 0">
+          <template x-for="(kw, index) in besoins" :key="index">
+            <div class="flex items-center bg-amber-100 text-amber-900 px-4 py-2 rounded-full text-sm font-medium keyword-chip">
+              <span x-text="kw"></span>
+              <button @click="removeKeyword(index)" class="ml-2 text-amber-700 hover:text-amber-900">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </template>
+        </div>
+        
+
+  <!-- Liste déroulante suggestions -->
+  <ul x-show="suggestions.length"
+      class="absolute w-full bg-white border rounded-xl shadow-md max-h-48 overflow-y-auto z-50">
+    <template x-for="s in suggestions" :key="s">
+      <li @click="selectSuggestion(s)"
+          class="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+          x-text="s"></li>
+    </template>
+  </ul>
+
+  <!-- Bouton d’ajout -->
+  <!-- Bouton d’ajout -->
+<button type="button" 
+@click="addKeyword"
+class="w-full mt-2 mb-6 px-6 py-3 text-white rounded-xl flex justify-center items-center gap-2 font-medium transition floating-btn"
+style="background-color: #675a40"
+:disabled="!keywordInput.trim()"
+:class="!keywordInput ? 'opacity-50 cursor-not-allowed' : ''">
+<div id="lottie-add" class="w-5 h-5"></div>
+Ajouter un besoin
+</button>
+
+</div>
+
+
+
+
+    <!-- Action Buttons -->
+    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+      <!-- Next Button -->
+      <button
+      id="next-button"
+      class="w-full px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition floating-btn"
+      :disabled="!creation.trim() || besoins.length === 0"
+      :class="!creation.trim() || besoins.length === 0 ? 'opacity-50 cursor-not-allowed' : ''">
+      Générer ma roadmap
+    </button>
+    
+      
+        
+        <!-- Loading Overlay -->
+        <div
+          id="loading-overlay"
+          class="fixed inset-0 bg-white bg-opacity-95 flex items-center justify-center z-50 hidden"
+        >
+          <div class="text-center">
+            <div id="loading-animation" class="w-40 h-40 mx-auto"></div>
+            <p class="mt-4 text-gray-700 font-medium">Analyse de votre projet en cours...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reset Button -->
+      <button 
+      class="w-full px-8 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition floating-btn mt-4"
+      @click="
+        creation = '';
+        besoins = [];
+    
+        // Supprime les données du localStorage
+        localStorage.removeItem('etapesGPT');
+        localStorage.removeItem('objectif');
+        localStorage.removeItem('keywords');
+
+      
+        localStorage.removeItem('besoins');
+    
+        // Supprime les blocs d'étapes
+        document.getElementById('etapes-container')?.remove();
+    
+        // Supprime les éléments dynamiques
+        document.querySelectorAll('.step-card, .budget-card, #continue-btn, .popup, .pro-card, .validation-animation')
+          .forEach(el => el.remove());
+      "
+    >
+      Réinitialiser
+    </button>
+    
+
+    </div>
+  </div>
+  
+
+
+<!-- ... partie haute inchangée ... -->
+<script>
+ document.addEventListener("DOMContentLoaded", () => {
+  const button = document.getElementById("next-button");
+  const overlay = document.getElementById("loading-overlay");
+  const animationContainer = document.getElementById("loading-animation");
+
+  button.addEventListener("click", async () => {
+    const objectif = document.querySelector('[x-model="creation"]').value.trim();
+    if (!objectif) return alert("Saisis une idée de projet.");
+      lottie.loadAnimation({
+        container: animationContainer,
+        renderer: "svg",
+        loop: true,
+        autoplay: true,
+        path: "/images/chargement2.json",
+      });
+
+    overlay.classList.remove("hidden");
+    lottie.loadAnimation({ /* … */ });
+
+    // ← NOUVEAU : on récupère la liste des besoins depuis le localStorage
+    const raw = localStorage.getItem('besoins') || '[]';
+    const besoinsArray = JSON.parse(raw);
+    const besoins = besoinsArray.join(", ");
+
+    // (facultatif) on stocke à nouveau
+    localStorage.setItem('creation', objectif);
+    localStorage.setItem('besoins', raw);
+
+    // on enregistre les mots-clés en base
+    await enregistrerKeywordsDansHasura(besoinsArray);
+
+      const prompt = `
+Tu es un chef de projet pragmatique qui aide un utilisateur à lancer ce projet : "${objectif}", en réponse aux besoins suivants : "${besoinsArray.join(', ')}".
+Rédige ta réponse en français **strictement** au format JSON suivant, sans introduction, sans explication, sans retour à la ligne.
+N’utilise jamais de guillemets typographiques (“ ”) ni d’apostrophes spéciales (’). Utilise uniquement " pour les chaînes.
+
+{
+  "steps": [
+    {
+      "name": "L'idée a du potentiel si tu t'impliques :",
+      "description": "Texte synthétique expliquant pourquoi ce projet a un potentiel, avec au moins 2 raisons économiques.",
+      "keywords": ["mot1", "mot2"]
+    },
+    {
+      "name": "Tu dois avoir des fournisseurs et des partenariats",
+      "description": "Liste les ressources nécessaires, types de fournisseurs, logiciels utiles...",
+      "keywords": ["fournisseurs", "logiciels"]
+    },
+    {
+      "name": "Profils professionnels à mobiliser",
+      "description": "Quels profils sont essentiels pour réussir le projet et pourquoi.",
+      "keywords": ["juriste", "designer", "freelance"]
+    },
+    {
+      "name": "Éléments critiques à ne pas oublier",
+      "description": "Mentionne les éléments souvent oubliés : juridiques, logistiques, techniques, etc.",
+      "keywords": ["hébergement", "mentions légales"]
+    }
+  ],
+  Le champ "budget" doit être structuré comme ci-dessous, en nombres uniquement, sans texte, avec les champs suivants :
+
+  "budget": {
+    "budget_min_fcfa": 5000000,
+    "budget_max_fcfa": 10000000,
+    "rentabilite_estimee_fcfa": 25000000,
+    "budget_min_eur": 7622,
+    "budget_max_eur": 15244,
+    "rentabilite_estimee_eur": 38110
+  }
+  
+  Toutes les valeurs doivent être cohérentes : la rentabilité estimée doit être supérieure au budget_max.  
+  N’écris **aucune phrase descriptive** dans ce bloc, uniquement les chiffres.
+  
+  
+  "keywords": {
+    "keywords": [
+      "Responsable logistique",
+      "Chef de produit",
+      "Spécialiste SEO",
+      "Chargé de communication",
+      "Expert en financement"
+    ]
+  }
+}`;
+
+      try {
+        const gptResponse = await fetch("https://gptproxy.maroadmap.com/gpt-proxy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "gpt-4",
+            messages: [{ role: "user", content: prompt }]
+          })
+        });
+
+        if (!gptResponse.ok) {
+          alert("Erreur GPT : code " + gptResponse.status);
+          overlay.classList.add("hidden");
+          return;
+        }
+
+        const gptData = await gptResponse.json();
+        console.log("📦 Contenu brut renvoyé par OpenAI :", gptData);
+        const choix = gptData.choices?.[0]?.message?.content?.trim();
+        console.log("📝 Réponse texte GPT :", choix);
+
+        if (!choix) {
+          alert("Erreur : réponse GPT vide ou invalide.");
+          overlay.classList.add("hidden");
+          return;
+        }
+
+        // Nettoyage et parsing JSON
+        const cleaned = choix
+          .replace(/[“”]/g, '"')
+          .replace(/[’]/g, "'")
+          .replace(/[\u0000-\u001F]+/g, '');
+
+        const jsonStart = cleaned.indexOf('{');
+        const jsonEnd = cleaned.lastIndexOf('}');
+        if (jsonStart === -1 || jsonEnd === -1) throw new Error("Bloc JSON incomplet");
+        const jsonPur = cleaned.slice(jsonStart, jsonEnd + 1);
+        const parsed = JSON.parse(jsonPur);
+        console.log("✅ JSON parsé :", parsed);
+
+        // Stockage local
+        localStorage.setItem('etapesGPT', JSON.stringify(parsed.steps));
+        localStorage.setItem('budgetGPT', JSON.stringify(parsed.budget));
+
+        // Enregistrement en base
+        const objectifLocal = localStorage.getItem("creation")?.trim();
+
+if (!objectifLocal) {
+  console.warn("❌ Aucun objectif valide pour enregistrement Hasura.");
+} else {
+  await enregistrerProjetEtEtapes(objectifLocal, parsed.steps);
+}
+
+
+        // Affichage dynamique
+        const container = document.createElement("div");
+        container.className = "mt-8 w-full max-w-2xl space-y-6";
+        container.id = "etapes-container";
+
+        if (Array.isArray(parsed.steps)) {
+          parsed.steps.forEach((step) => {
+            if (!step.name || !step.description) return;
+
+            const stepBlock = document.createElement("div");
+            stepBlock.className = "bg-gray-100 p-4 rounded-xl shadow transition-all hover:shadow-lg";
+            stepBlock.innerHTML = `
+              <h3 class="text-lg font-bold mb-2">${step.name}</h3>
+              <p class="mb-2 text-gray-700">${step.description}</p>
+              <p class="text-sm text-gray-500">Mots-clés : ${Array.isArray(step.keywords) ? step.keywords.join(", ") : "Aucun"}</p>
+            `;
+            container.appendChild(stepBlock);
+          });
+        }
+        const budgetBlock = document.createElement("div");
+        budgetBlock.className = "bg-gray-100 p-4 rounded-xl shadow transition-all mt-4";
+        budgetBlock.innerHTML = `
+          <h3 class="text-lg font-bold mb-2">Budget & Rentabilité</h3>
+          <p class="text-sm text-gray-600">
+            Budget : ${parsed.budget.budget_min_fcfa} FCFA (~${parsed.budget.budget_min_eur} €)
+            – ${parsed.budget.budget_max_fcfa} FCFA (~${parsed.budget.budget_max_eur} €)
+          </p>
+          <p class="text-sm text-green-600">
+            Rentabilité estimée : ${parsed.budget.rentabilite_estimee_fcfa} FCFA (~${parsed.budget.rentabilite_estimee_eur} €)
+          </p>
+        `;
+        container.appendChild(budgetBlock);
+        
+        const continuerBtn = document.createElement("button");
+        continuerBtn.textContent = "Continuer";
+        continuerBtn.className = "mt-6 bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 block mx-auto";
+        continuerBtn.addEventListener("click", () => {
+          sessionStorage.setItem('fromRedirect', 'true');
+          window.location.href = 'page4.html';
+        });
+        
+        document.body.appendChild(container);
+        document.body.appendChild(continuerBtn);
+        container.scrollIntoView({ behavior: "smooth" });
+        overlay.classList.add("hidden");
+
+      } catch (error) {
+        console.error("❌ Erreur globale :", error);
+        alert("Erreur lors du traitement de votre demande.");
+        overlay.classList.add("hidden");
+      }
+    });
+  });
+</script>
+
+    </div>
+  </div>
+
+  <!-- Lottie initialisation -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      lottie.loadAnimation({
+        container: document.getElementById('lottie-icon'),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: '/images/nav.json'
+      });
+     
+
+      lottie.loadAnimation({
+        container: document.getElementById('lottie-popup'),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: '/images/personne.json'
+      });
+      lottie.loadAnimation({
+        container: document.getElementById('lottie-add'),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: '/images/ajout+.json'
+      });
+      
+      lottie.loadAnimation({
+        container: document.getElementById('lottie-idee'),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path: '/images/idee.json'
+      });
+    });
+  </script>
+  <script>
+    window.addEventListener('pageshow', function (event) {
+      const fromRedirect = sessionStorage.getItem('fromRedirect');
+  
+      if ((event.persisted || performance.navigation.type === 1) && !fromRedirect) {
+        window.location.href = 'index.html';
+      }
+      
+  
+      // Réinitialiser après redirection volontaire
+      sessionStorage.removeItem('fromRedirect');
+    });
+  </script>
+  <script>
+    if (!localStorage.getItem("user_id")) {
+      localStorage.setItem("user_id", crypto.randomUUID());
+    }
+  
+   const user_id = localStorage.getItem("user_id");
+if (!user_id) alert("User ID manquant");
+
+  
+    async function getKeywordId(nom) {
+      const res = await fetch('https://hasura-preprod.maroadmap.com/v1/graphql', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-hasura-admin-secret': 'newpassword'   // ← indispensable
+    // (x-hasura-role inutile : l’admin a déjà tous les droits)
+  },
+
+
+        body: JSON.stringify({
+          query: `
+            query GetKeywordId($name: String!) {
+              keywords(where: {name: {_ilike: $name}}) {
+                id
+              }
+            }
+          `,
+          variables: { name: nom }
+        })
+      });
+      const data = await res.json();
+      return data.data.keywords[0]?.id || null;
+    }
+  
+    async function insertUserKeyword(user_id, keyword_id) {
+      if (!keyword_id) return;
+  
+      await fetch('https://hasura-preprod.maroadmap.com/v1/graphql', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-hasura-admin-secret': 'newpassword'   // ← indispensable
+    // (x-hasura-role inutile : l’admin a déjà tous les droits)
+  },
+
+
+        body: JSON.stringify({
+          query: `
+            mutation InsertUserKeyword($object: user_keywords_insert_input!) {
+              insert_user_keywords_one(object: $object) {
+                id
+              }
+            }
+          `,
+          variables: {
+            object: {
+              user_id: user_id,
+              keyword_id: keyword_id
+            }
+          }
+        })
+      });
+    }
+  
+    async function enregistrerKeywordsDansHasura(keywordsArray) {
+      for (const kw of keywordsArray) {
+        const id = await getKeywordId(kw);
+        await insertUserKeyword(user_id, id);
+      }
+    }
+   
+  </script>
+  
+ 
+
+</body>
+</html>
